@@ -26,6 +26,7 @@ const run = async () => {
 
     const db = client.db('United_Pets')
     const usersCollection = db.collection('users')
+    const petsCollection = db.collection('pets')
     
 
     //users api
@@ -41,7 +42,24 @@ const run = async () => {
       res.send(result)
     })
 
+    app.get('/users', async(req, res) =>{
+      const user = req.body
+      const result = await usersCollection.find({user}).toArray()
+      res.send(result)
+    })
 
+    app.post('/pets', async(req, res)=>{
+      const newPet = req.body;
+      const result = await petsCollection.insertOne(newPet)
+      res.send(result)
+    })
+
+    app.get('/pets', async(req, res) =>{
+      const pets = req.body;
+      const result = await petsCollection.find(pets).toArray()
+      res.send(result) 
+    })
+    
     
 
 
