@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
 
 //middlewares
@@ -55,6 +55,18 @@ const run = async () => {
       res.send(result);
     });
 
+    app.put('/pets/:id', async(req, res) =>{
+      const petId = req.params.id;
+      const updatedPet = req.body;
+
+      const result = await petsCollection.updateOne(
+        {_id: new ObjectId(petId)},
+        {$set: updatedPet}
+      )
+
+      res.send(result)
+    })
+
     app.get("/pets", async (req, res) => {
       const pets = req.body;
       const result = await petsCollection.find(pets).toArray();
@@ -74,6 +86,23 @@ const run = async () => {
       ]);
       res.send({pets, total});
     });
+
+    app.get('/pets/latest', async(req, res) =>{
+      const latestPet = await petsCollection
+      .find()
+      .sort({addedTime: -1})
+      .limit(6)
+      .toArray()
+
+      res.send(latestPet)
+    })
+
+    app.delete('/pets/:id', async(req, res) =>{
+      const id = req.params.id;
+      const petId ={_id: new ObjectId(id)}
+      const result = await petsCollection.deleteOne(petId)
+      res.send(result)
+    })
 
     await client.db("admin").command({ ping: 1 });
     console.log(
