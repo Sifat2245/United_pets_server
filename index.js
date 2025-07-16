@@ -24,48 +24,56 @@ const run = async () => {
   try {
     await client.connect();
 
-    const db = client.db('United_Pets')
-    const usersCollection = db.collection('users')
-    const petsCollection = db.collection('pets')
-    
+    const db = client.db("United_Pets");
+    const usersCollection = db.collection("users");
+    const petsCollection = db.collection("pets");
 
     //users api
 
-    app.post('/users', async(req, res) =>{
+    app.post("/users", async (req, res) => {
       const email = req.body.email;
-      const existingUser = await usersCollection.findOne({email});
-      if(existingUser){
-        return res.status(400).send({message: 'user already exist', inserted: false})
+      const existingUser = await usersCollection.findOne({ email });
+      if (existingUser) {
+        return res
+          .status(400)
+          .send({ message: "user already exist", inserted: false });
       }
       const newUser = req.body;
       const result = await usersCollection.insertOne(newUser);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.get('/users', async(req, res) =>{
-      const user = req.body
-      const result = await usersCollection.find({user}).toArray()
-      res.send(result)
-    })
+    app.get("/users", async (req, res) => {
+      const user = req.body;
+      const result = await usersCollection.find({ user }).toArray();
+      res.send(result);
+    });
 
-    app.post('/pets', async(req, res)=>{
+    app.post("/pets", async (req, res) => {
       const newPet = req.body;
-      const result = await petsCollection.insertOne(newPet)
-      res.send(result)
-    })
+      const result = await petsCollection.insertOne(newPet);
+      res.send(result);
+    });
 
-    app.get('/pets', async(req, res) =>{
+    app.get("/pets", async (req, res) => {
       const pets = req.body;
-      const result = await petsCollection.find(pets).toArray()
-      res.send(result) 
-    })
-    
-    
+      const result = await petsCollection.find(pets).toArray();
+      res.send(result);
+    });
 
+    app.get("/pets/email", async (req, res) => {
+      const email = req.query.email;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      const filter = { addedBy: email };
 
-
-
-
+      const [pets, total] = await Promise.all([
+        petsCollection.find(filter).skip(skip).limit(limit).toArray(),
+        petsCollection.countDocuments(filter),
+      ]);
+      res.send({pets, total});
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
