@@ -97,6 +97,11 @@ const run = async () => {
       res.send(latestPet)
     })
 
+    app.get('/pets/not-adopted', async(req, res) =>{
+      const pets = await petsCollection.find({adoptionStatus: 'Not Adopted'}).toArray()
+      res.send(pets)
+    })
+
     app.delete('/pets/:id', async(req, res) =>{
       const id = req.params.id;
       const petId ={_id: new ObjectId(id)}
