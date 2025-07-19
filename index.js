@@ -102,6 +102,25 @@ const run = async () => {
       res.send(pets)
     })
 
+    app.get('/pets/:id', async(req, res) =>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result =  await petsCollection.findOne(query)
+      res.send(result)
+    })
+
+    app.get('/pets/category/:category', async(req, res) =>{
+      const {category} = req.params;
+      const {exclude} = req.query;
+      const query = {
+       category: { $regex: new RegExp(category, "i") },
+        _id: {$ne: new ObjectId(exclude)}
+      }
+
+      const result = await petsCollection.find(query).limit(4).toArray()
+      res.send(result)
+    })
+
     app.delete('/pets/:id', async(req, res) =>{
       const id = req.params.id;
       const petId ={_id: new ObjectId(id)}
