@@ -28,7 +28,7 @@ const run = async () => {
     const usersCollection = db.collection("users");
     const petsCollection = db.collection("pets");
     const adoptionRequestCollection = db.collection("adoptionRequest");
-    const donationCollection = db.collection('donations')
+    const donationCollection = db.collection("donations");
 
     //users api
 
@@ -70,16 +70,16 @@ const run = async () => {
       res.send(result);
     });
 
-    app.patch('/pets/:id', async(req, res) =>{
+    app.patch("/pets/:id", async (req, res) => {
       const petId = req.params.id;
-      const filter = {_id: new ObjectId(petId)}
+      const filter = { _id: new ObjectId(petId) };
       const updatedDoc = {
-        $set: {adoptionStatus: 'Adopted'}
-      }
+        $set: { adoptionStatus: "Adopted" },
+      };
 
-      const result = await petsCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
+      const result = await petsCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     app.get("/pets", async (req, res) => {
       const pets = req.body;
@@ -205,20 +205,32 @@ const run = async () => {
       res.send(result);
     });
 
-
     //donation api
 
-    app.post('/donations', async(req, res) =>{
+    app.post("/donations", async (req, res) => {
       const donation = req.body;
-      const result = await donationCollection.insertOne(donation)
-      res.send(result)
-    })
+      const result = await donationCollection.insertOne(donation);
+      res.send(result);
+    });
 
-    app.get('/donation/email', async(req, res) =>{
+    app.get("/donation/email", async (req, res) => {
       const email = req.query.email;
-      const result = await donationCollection.find({addedBy: email}).toArray()
-      res.send(result)
-    })
+      const result = await donationCollection
+        .find({ addedBy: email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.put("/donation/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedCampaign = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedCampaign,
+      };
+      const result = await donationCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
