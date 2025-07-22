@@ -27,6 +27,8 @@ const run = async () => {
     const db = client.db("United_Pets");
     const usersCollection = db.collection("users");
     const petsCollection = db.collection("pets");
+    const adoptionRequestCollection = db.collection("adoptionRequest");
+    const donationCollection = db.collection('donations')
 
     //users api
 
@@ -49,21 +51,33 @@ const run = async () => {
       res.send(result);
     });
 
+    //pet api's
     app.post("/pets", async (req, res) => {
       const newPet = req.body;
       const result = await petsCollection.insertOne(newPet);
       res.send(result);
     });
 
-    app.put('/pets/:id', async(req, res) =>{
+    app.put("/pets/:id", async (req, res) => {
       const petId = req.params.id;
       const updatedPet = req.body;
 
       const result = await petsCollection.updateOne(
-        {_id: new ObjectId(petId)},
-        {$set: updatedPet}
-      )
+        { _id: new ObjectId(petId) },
+        { $set: updatedPet }
+      );
 
+      res.send(result);
+    });
+
+    app.patch('/pets/:id', async(req, res) =>{
+      const petId = req.params.id;
+      const filter = {_id: new ObjectId(petId)}
+      const updatedDoc = {
+        $set: {adoptionStatus: 'Adopted'}
+      }
+
+      const result = await petsCollection.updateOne(filter, updatedDoc)
       res.send(result)
     })
 
@@ -84,47 +98,125 @@ const run = async () => {
         petsCollection.find(filter).skip(skip).limit(limit).toArray(),
         petsCollection.countDocuments(filter),
       ]);
-      res.send({pets, total});
+      res.send({ pets, total });
     });
 
-    app.get('/pets/latest', async(req, res) =>{
+    app.get("/pets/latest", async (req, res) => {
       const latestPet = await petsCollection
-      .find()
-      .sort({addedTime: -1})
-      .limit(6)
-      .toArray()
+        .find()
+        .sort({ addedTime: -1 })
+        .limit(6)
+        .toArray();
 
-      res.send(latestPet)
-    })
+      res.send(latestPet);
+    });
 
-    app.get('/pets/not-adopted', async(req, res) =>{
-      const pets = await petsCollection.find({adoptionStatus: 'Not Adopted'}).toArray()
-      res.send(pets)
-    })
+    app.get("/pets/not-adopted", async (req, res) => {
+      const pets = await petsCollection
+        .find({ adoptionStatus: "Not Adopted" })
+        .toArray();
+      res.send(pets);
+    });
 
-    app.get('/pets/:id', async(req, res) =>{
+    app.get("/pets/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
-      const result =  await petsCollection.findOne(query)
-      res.send(result)
-    })
+      const query = { _id: new ObjectId(id) };
+      const result = await petsCollection.findOne(query);
+      res.send(result);
+    });
 
-    app.get('/pets/category/:category', async(req, res) =>{
-      const {category} = req.params;
-      const {exclude} = req.query;
+    app.get("/pets/category/:category", async (req, res) => {
+      const { category } = req.params;
+      const { exclude } = req.query;
       const query = {
-       category: { $regex: new RegExp(category, "i") },
-        _id: {$ne: new ObjectId(exclude)}
+        category: { $regex: new RegExp(category, "i") },
+        _id: { $ne: new ObjectId(exclude) },
+      };
+
+      const result = await petsCollection.find(query).limit(4).toArray();
+      res.send(result);
+    });
+
+    app.delete("/pets/:id", async (req, res) => {
+      const id = req.params.id;
+      const petId = { _id: new ObjectId(id) };
+      const result = await petsCollection.deleteOne(petId);
+      res.send(result);
+    });
+
+    //adoption api's
+
+    app.post("/adoptionRequest", async (req, res) => {
+      const adoptionRequest = req.body;
+      const result = await adoptionRequestCollection.insertOne(adoptionRequest);
+      res.send(result);
+    });
+
+    app.get("/adoptionRequest", async (req, res) => {
+      const addedBy = req.query.email;
+
+      const allRequests = await adoptionRequestCollection.find().toArray();
+      const filteredRequests = [];
+
+      for (const request of allRequests) {
+        const pet = await petsCollection.findOne({
+          _id: new ObjectId(request.petId),
+        });
+
+        // console.log(pet);
+
+        if (pet && pet.addedBy === addedBy) {
+          filteredRequests.push(request);
+        }
       }
 
-      const result = await petsCollection.find(query).limit(4).toArray()
+      res.send(filteredRequests);
+    });
+
+    app.patch("/adoptionRequest/:id/status", async (req, res) => {
+      const requestId = req.params.id;
+      const { status, petId } = req.body;
+      console.log(petId);
+
+      const filter = {
+        _id: new ObjectId(requestId),
+      };
+      const updatedDoc = {
+        $set: { status: status },
+      };
+      const result = await adoptionRequestCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+
+      const adoptionStatus = await petsCollection.updateOne(
+        { _id: new ObjectId(petId) },
+        { $set: { adoptionStatus: "Adopted" } }
+      );
+
+      res.send(result);
+    });
+
+    app.delete("/adoptionRequest/:id", async (req, res) => {
+      const requestedId = req.params.id;
+      const result = await adoptionRequestCollection.deleteOne({
+        _id: new ObjectId(requestedId),
+      });
+      res.send(result);
+    });
+
+
+    //donation api
+
+    app.post('/donations', async(req, res) =>{
+      const donation = req.body;
+      const result = await donationCollection.insertOne(donation)
       res.send(result)
     })
 
-    app.delete('/pets/:id', async(req, res) =>{
-      const id = req.params.id;
-      const petId ={_id: new ObjectId(id)}
-      const result = await petsCollection.deleteOne(petId)
+    app.get('/donation/email', async(req, res) =>{
+      const email = req.query.email;
+      const result = await donationCollection.find({addedBy: email}).toArray()
       res.send(result)
     })
 
