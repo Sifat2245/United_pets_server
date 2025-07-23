@@ -58,9 +58,21 @@ const run = async () => {
       }
     };
 
+    // verify admin
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await usersCollection.findOne({ email });
+
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     //users api
 
-    app.post("/users", verifyToken,  async (req, res) => {
+    app.post("/users", verifyToken, async (req, res) => {
       const email = req.body.email;
       const existingUser = await usersCollection.findOne({ email });
       if (existingUser) {
@@ -73,7 +85,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get("/users", verifyToken,  async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       const user = req.body;
       const result = await usersCollection.find({ user }).toArray();
       res.send(result);
@@ -139,7 +151,7 @@ const run = async () => {
       res.send(latestPet);
     });
 
-    app.get("/pets/not-adopted",  async (req, res) => {
+    app.get("/pets/not-adopted", async (req, res) => {
       const pets = await petsCollection
         .find({ adoptionStatus: "Not Adopted" })
         .toArray();
@@ -261,7 +273,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.put("/donation/:id", verifyToken,  async (req, res) => {
+    app.put("/donation/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const updatedCampaign = req.body;
       const query = { _id: new ObjectId(id) };
@@ -272,7 +284,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.patch("/donation/:id", verifyToken,  async (req, res) => {
+    app.patch("/donation/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
       const query = { _id: new ObjectId(id) };
