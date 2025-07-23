@@ -4,11 +4,18 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
+const admin = require("firebase-admin");
 
 //middlewares
 dotenv.config();
 app.use(cors());
 app.use(express.json());
+
+const serviceAccount = require("./Admin-key.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.qwhtqkb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -22,7 +29,7 @@ const client = new MongoClient(uri, {
 
 const run = async () => {
   try {
-    await client.connect();
+    // await client.connect()
 
     const db = client.db("United_Pets");
     const usersCollection = db.collection("users");
@@ -30,9 +37,30 @@ const run = async () => {
     const adoptionRequestCollection = db.collection("adoptionRequest");
     const donationCollection = db.collection("donations");
 
+    //verify firebase token
+    const verifyToken = async (req, res, next) => {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+
+      console.log(authHeader);
+
+      const token = authHeader.split(" ")[1];
+
+      //verify
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.decoded = decoded;
+        next();
+      } catch (error) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+    };
+
     //users api
 
-    app.post("/users", async (req, res) => {
+    app.post("/users", verifyToken,  async (req, res) => {
       const email = req.body.email;
       const existingUser = await usersCollection.findOne({ email });
       if (existingUser) {
@@ -45,20 +73,20 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken,  async (req, res) => {
       const user = req.body;
       const result = await usersCollection.find({ user }).toArray();
       res.send(result);
     });
 
     //pet api's
-    app.post("/pets", async (req, res) => {
+    app.post("/pets", verifyToken, async (req, res) => {
       const newPet = req.body;
       const result = await petsCollection.insertOne(newPet);
       res.send(result);
     });
 
-    app.put("/pets/:id", async (req, res) => {
+    app.put("/pets/:id", verifyToken, async (req, res) => {
       const petId = req.params.id;
       const updatedPet = req.body;
 
@@ -70,7 +98,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.patch("/pets/:id", async (req, res) => {
+    app.patch("/pets/:id", verifyToken, async (req, res) => {
       const petId = req.params.id;
       const filter = { _id: new ObjectId(petId) };
       const updatedDoc = {
@@ -111,7 +139,7 @@ const run = async () => {
       res.send(latestPet);
     });
 
-    app.get("/pets/not-adopted", async (req, res) => {
+    app.get("/pets/not-adopted",  async (req, res) => {
       const pets = await petsCollection
         .find({ adoptionStatus: "Not Adopted" })
         .toArray();
@@ -137,7 +165,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.delete("/pets/:id", async (req, res) => {
+    app.delete("/pets/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const petId = { _id: new ObjectId(id) };
       const result = await petsCollection.deleteOne(petId);
@@ -146,7 +174,7 @@ const run = async () => {
 
     //adoption api's
 
-    app.post("/adoptionRequest", async (req, res) => {
+    app.post("/adoptionRequest", verifyToken, async (req, res) => {
       const adoptionRequest = req.body;
       const result = await adoptionRequestCollection.insertOne(adoptionRequest);
       res.send(result);
@@ -173,7 +201,7 @@ const run = async () => {
       res.send(filteredRequests);
     });
 
-    app.patch("/adoptionRequest/:id/status", async (req, res) => {
+    app.patch("/adoptionRequest/:id/status", verifyToken, async (req, res) => {
       const requestId = req.params.id;
       const { status, petId } = req.body;
       console.log(petId);
@@ -197,7 +225,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.delete("/adoptionRequest/:id", async (req, res) => {
+    app.delete("/adoptionRequest/:id", verifyToken, async (req, res) => {
       const requestedId = req.params.id;
       const result = await adoptionRequestCollection.deleteOne({
         _id: new ObjectId(requestedId),
@@ -207,9 +235,21 @@ const run = async () => {
 
     //donation api
 
-    app.post("/donations", async (req, res) => {
+    app.post("/donations", verifyToken, async (req, res) => {
       const donation = req.body;
       const result = await donationCollection.insertOne(donation);
+      res.send(result);
+    });
+
+    app.get("/donations", async (req, res) => {
+      const result = await donationCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/donations/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await donationCollection.findOne(query);
       res.send(result);
     });
 
@@ -221,7 +261,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.put("/donation/:id", async (req, res) => {
+    app.put("/donation/:id", verifyToken,  async (req, res) => {
       const id = req.params.id;
       const updatedCampaign = req.body;
       const query = { _id: new ObjectId(id) };
@@ -232,10 +272,22 @@ const run = async () => {
       res.send(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    app.patch("/donation/:id", verifyToken,  async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: updatedData,
+      };
+
+      const result = await donationCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
   }
 };
