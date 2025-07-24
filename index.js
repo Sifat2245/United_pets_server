@@ -11,6 +11,8 @@ dotenv.config();
 app.use(cors());
 app.use(express.json());
 
+const stripe = require("stripe")(process.env.PAYMENT_GETAWAY_KEY);
+
 const serviceAccount = require("./Admin-key.json");
 
 admin.initializeApp({
@@ -265,6 +267,25 @@ const run = async () => {
       res.send(result);
     });
 
+    app.get("/donation/category/:category", async (req, res) => {
+      const category = req.params.category;
+      const { excludeId } = req.query;
+      const query = {
+        petCategory: { $regex: new RegExp(category, "i") },
+      };
+
+      if (excludeId) {
+        query._id = { $ne: new ObjectId(excludeId) };
+      }
+
+      const result = await donationCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .toArray();
+      res.send(result);
+    });
+
     app.get("/donation/email", async (req, res) => {
       const email = req.query.email;
       const result = await donationCollection
@@ -294,6 +315,26 @@ const run = async () => {
 
       const result = await donationCollection.updateOne(query, updatedDoc);
       res.send(result);
+    });
+
+    //payment intent
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { amount } = req.body;
+
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount * 100,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
     });
 
     // await client.db("admin").command({ ping: 1 });
