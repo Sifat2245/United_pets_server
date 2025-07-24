@@ -38,6 +38,7 @@ const run = async () => {
     const petsCollection = db.collection("pets");
     const adoptionRequestCollection = db.collection("adoptionRequest");
     const donationCollection = db.collection("donations");
+    const userDonationCollection = db.collection("user-donation");
 
     //verify firebase token
     const verifyToken = async (req, res, next) => {
@@ -46,7 +47,7 @@ const run = async () => {
         return res.status(401).send({ message: "Unauthorized access" });
       }
 
-      console.log(authHeader);
+      // console.log(authHeader);
 
       const token = authHeader.split(" ")[1];
 
@@ -218,7 +219,7 @@ const run = async () => {
     app.patch("/adoptionRequest/:id/status", verifyToken, async (req, res) => {
       const requestId = req.params.id;
       const { status, petId } = req.body;
-      console.log(petId);
+      // console.log(petId);
 
       const filter = {
         _id: new ObjectId(requestId),
@@ -335,6 +336,64 @@ const run = async () => {
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
+    });
+
+    app.patch("/donate/:id", async (req, res) => {
+      const id = req.params.id;
+      const { amount, email } = req.body;
+
+      const update = {
+        $inc: { totalDonated: amount },
+        $push: {
+          donators: {
+            email: email,
+            donatedAmount: amount,
+            date: new Date(),
+          },
+        },
+      };
+
+      const result = await donationCollection.updateOne(
+        { _id: new ObjectId(id) },
+        update
+      );
+
+      res.send(result);
+    });
+
+    //donators api
+    app.post("/user-donation", async (req, res) => {
+      const donation = req.body;
+      const result = await userDonationCollection.insertOne(donation);
+      res.send(result);
+    });
+
+    app.get("/user-donation/email", async (req, res) => {
+      const email = req.query.email;
+      const result = await userDonationCollection
+        .find({ userEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.delete("/user-donation/refund", async (req, res) => {
+      const { donationId, userEmail, amount } = req.body;
+
+      const deleteResult = await userDonationCollection.deleteOne({
+        donationId,
+        userEmail,
+        amount,
+      });
+
+      const updateResult = await donationCollection.updateOne(
+      { _id: new ObjectId(donationId) },
+      {
+        $inc: { totalDonated: -amount },
+        $pull: { donators: { email: userEmail, donatedAmount: amount } },
+      }
+    );
+
+    res.send(deleteResult)
     });
 
     // await client.db("admin").command({ ping: 1 });
