@@ -109,21 +109,64 @@ const run = async () => {
       res.send({ role: user.role || "user" });
     });
 
-    app.patch(
-      "/users/:id/role",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
-        const { id } = req.params;
-        const { role } = req.body;
 
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { role } }
-        );
-        res.send(result);
-      }
-    );
+    //admin controls
+
+     app.patch("/users/:id/role", verifyToken, verifyAdmin, async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
+
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      res.send(result);
+    });
+
+     app.patch("/pet/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const updates = req.body;
+      const result = await petsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updates}
+      );
+      res.send(result);
+    });
+
+    app.get("/donation", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await donationCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.delete('/donation-delete/:id', verifyToken, verifyAdmin, async(req, res) =>{
+      const id = req.params.id;
+      const result = await donationCollection.deleteOne({_id: new ObjectId(id)})
+      res.send(result)
+    })
+
+     app.patch("/donation-status/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: updatedData,
+      };
+
+      const result = await donationCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+
+     app.put("/donation-edit/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const updatedCampaign = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedCampaign,
+      };
+      const result = await donationCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
 
     //pet api's
@@ -156,9 +199,10 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get("/pets", async (req, res) => {
-      const pets = req.body;
-      const result = await petsCollection.find(pets).toArray();
+  
+
+    app.get("/pets", verifyToken, async (req, res) => {
+      const result = await petsCollection.find().toArray();
       res.send(result);
     });
 
@@ -445,3 +489,42 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`the server is running on port ${port}`);
 });
+
+
+
+
+// GET /user-overview/:email
+// app.get("/user-overview/:email", verifyToken, async (req, res) => {
+//   const email = req.params.email;
+
+//   const petsAdded = await petsCollection.countDocuments({ addedBy: email });
+
+//   const adoptionRequests = await adoptionCollection.countDocuments({
+//     ownerEmail: email,
+//   });
+
+//   const pendingAdoptions = await adoptionCollection.countDocuments({
+//     ownerEmail: email,
+//     status: "pending",
+//   });
+
+//   const activeCampaigns = await donationCollection.countDocuments({
+//     ownerEmail: email,
+//     isPaused: false,
+//   });
+
+//   const totalDonations = await donationPaymentsCollection
+//     .aggregate([
+//       { $match: { ownerEmail: email } },
+//       { $group: { _id: null, total: { $sum: "$amount" } } },
+//     ])
+//     .toArray();
+
+//   res.send({
+//     petsAdded,
+//     adoptionRequests,
+//     pendingAdoptions,
+//     activeCampaigns,
+//     totalDonations: totalDonations[0]?.total || 0,
+//   });
+// });
