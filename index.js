@@ -75,7 +75,7 @@ const run = async () => {
 
     //users api
 
-    app.post("/users", verifyToken, async (req, res) => {
+    app.post("/users", async (req, res) => {
       const email = req.body.email;
       const existingUser = await usersCollection.findOne({ email });
       if (existingUser) {
@@ -89,10 +89,42 @@ const run = async () => {
     });
 
     app.get("/users", verifyToken, async (req, res) => {
-      const user = req.body;
-      const result = await usersCollection.find({ user }).toArray();
+      const result = await usersCollection.find().toArray();
       res.send(result);
     });
+
+    app.get("/users/:email/role", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (!email) {
+        return res.status(400).send({ message: "email is required" });
+      }
+
+      const user = await usersCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(400).send({ message: "user not found" });
+      }
+
+      res.send({ role: user.role || "user" });
+    });
+
+    app.patch(
+      "/users/:id/role",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { id } = req.params;
+        const { role } = req.body;
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role } }
+        );
+        res.send(result);
+      }
+    );
+
 
     //pet api's
     app.post("/pets", verifyToken, async (req, res) => {
@@ -386,14 +418,14 @@ const run = async () => {
       });
 
       const updateResult = await donationCollection.updateOne(
-      { _id: new ObjectId(donationId) },
-      {
-        $inc: { totalDonated: -amount },
-        $pull: { donators: { email: userEmail, donatedAmount: amount } },
-      }
-    );
+        { _id: new ObjectId(donationId) },
+        {
+          $inc: { totalDonated: -amount },
+          $pull: { donators: { email: userEmail, donatedAmount: amount } },
+        }
+      );
 
-    res.send(deleteResult)
+      res.send(deleteResult);
     });
 
     // await client.db("admin").command({ ping: 1 });
