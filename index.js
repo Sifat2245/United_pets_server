@@ -109,10 +109,9 @@ const run = async () => {
       res.send({ role: user.role || "user" });
     });
 
-
     //admin controls
 
-     app.patch("/users/:id/role", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/users/:id/role", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
 
@@ -123,12 +122,12 @@ const run = async () => {
       res.send(result);
     });
 
-     app.patch("/pet/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/pet/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const updates = req.body;
       const result = await petsCollection.updateOne(
         { _id: new ObjectId(id) },
-        { $set: updates}
+        { $set: updates }
       );
       res.send(result);
     });
@@ -138,36 +137,51 @@ const run = async () => {
       res.send(result);
     });
 
-    app.delete('/donation-delete/:id', verifyToken, verifyAdmin, async(req, res) =>{
-      const id = req.params.id;
-      const result = await donationCollection.deleteOne({_id: new ObjectId(id)})
-      res.send(result)
-    })
+    app.delete(
+      "/donation-delete/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await donationCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    );
 
-     app.patch("/donation-status/:id", verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const updatedData = req.body;
-      const query = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: updatedData,
-      };
+    app.patch(
+      "/donation-status/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const updatedData = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: updatedData,
+        };
 
-      const result = await donationCollection.updateOne(query, updatedDoc);
-      res.send(result);
-    });
+        const result = await donationCollection.updateOne(query, updatedDoc);
+        res.send(result);
+      }
+    );
 
-
-     app.put("/donation-edit/:id", verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const updatedCampaign = req.body;
-      const query = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: updatedCampaign,
-      };
-      const result = await donationCollection.updateOne(query, updateDoc);
-      res.send(result);
-    });
-
+    app.put(
+      "/donation-edit/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const updatedCampaign = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: updatedCampaign,
+        };
+        const result = await donationCollection.updateOne(query, updateDoc);
+        res.send(result);
+      }
+    );
 
     //pet api's
     app.post("/pets", verifyToken, async (req, res) => {
@@ -199,8 +213,6 @@ const run = async () => {
       res.send(result);
     });
 
-  
-
     app.get("/pets", verifyToken, async (req, res) => {
       const result = await petsCollection.find().toArray();
       res.send(result);
@@ -231,12 +243,28 @@ const run = async () => {
     });
 
     app.get("/pets/not-adopted", async (req, res) => {
-      const pets = await petsCollection
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      const cursor = petsCollection
         .find({ adoptionStatus: "Not Adopted" })
-        .toArray();
-      res.send(pets);
+        .skip(skip)
+        .limit(limit);
+
+      const pets = await cursor.toArray();
+      const total = await petsCollection.countDocuments({
+        adoptionStatus: "Not Adopted",
+      });
+
+      res.send({
+        pets,
+        total,
+        hasMore: skip + pets.length < total,
+      });
     });
 
+    
     app.get("/pets/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -489,9 +517,6 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`the server is running on port ${port}`);
 });
-
-
-
 
 // GET /user-overview/:email
 // app.get("/user-overview/:email", verifyToken, async (req, res) => {
