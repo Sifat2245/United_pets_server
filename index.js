@@ -249,6 +249,7 @@ const run = async () => {
 
       const cursor = petsCollection
         .find({ adoptionStatus: "Not Adopted" })
+        .sort({addedTime: -1})
         .skip(skip)
         .limit(limit);
 
@@ -361,7 +362,7 @@ const run = async () => {
     });
 
     app.get("/donations", async (req, res) => {
-      const result = await donationCollection.find().toArray();
+      const result = await donationCollection.find().sort({createdAt: -1}).toArray();
       res.send(result);
     });
 
