@@ -63,6 +63,17 @@ const run = async () => {
       //verify
       try {
         const decoded = await admin.auth().verifyIdToken(token);
+
+        const userInDB = await usersCollection.findOne({
+          email: decoded.email,
+        });
+
+        if (!userInDB) return res.status(401).send("User not found");
+        if (userInDB.banned) {
+          return res
+            .status(403)
+            .json({ message: "Your account has been banned" });
+        }
         req.decoded = decoded;
         next();
       } catch (error) {
@@ -101,7 +112,7 @@ const run = async () => {
       };
 
       await emailTransporter.sendMail(mailOptions);
-      res.send({success: true , message: 'email send successfully'})
+      res.send({ success: true, message: "email send successfully" });
     });
 
     //users api
@@ -138,6 +149,17 @@ const run = async () => {
       }
 
       res.send({ role: user.role || "user" });
+    });
+
+    app.get("/user/email/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await usersCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.send(user);
     });
 
     //admin controls
@@ -213,6 +235,15 @@ const run = async () => {
         res.send(result);
       }
     );
+
+    app.patch("/user/:id/ban", async (req, res) => {
+      const id = req.params.id;
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { banned: true } }
+      );
+      res.send(result);
+    });
 
     //pet api's
     app.post("/pets", verifyToken, async (req, res) => {
@@ -534,6 +565,42 @@ const run = async () => {
       res.send(deleteResult);
     });
 
+    // user overview
+    app.get("/user-overview/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      const petsAdded = await petsCollection.countDocuments({ addedBy: email });
+
+      const adoptionRequests = await adoptionRequestCollection.countDocuments({
+        email: email,
+      });
+
+      const pendingAdoptions = await adoptionRequestCollection.countDocuments({
+        email: email,
+        status: "Pending",
+      });
+
+      const activeCampaigns = await donationCollection.countDocuments({
+        addedBy: email,
+        paused: false,
+      });
+
+      const totalDonations = await userDonationCollection
+        .aggregate([
+          { $match: { userEmail: email } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ])
+        .toArray();
+
+      res.send({
+        petsAdded,
+        adoptionRequests,
+        pendingAdoptions,
+        activeCampaigns,
+        totalDonations: totalDonations[0]?.total || 0,
+      });
+    });
+
     // await client.db("admin").command({ ping: 1 });
     // console.log(
     //   "Pinged your deployment. You successfully connected to MongoDB!"
@@ -551,39 +618,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`the server is running on port ${port}`);
 });
-
-// GET /user-overview/:email
-// app.get("/user-overview/:email", verifyToken, async (req, res) => {
-//   const email = req.params.email;
-
-//   const petsAdded = await petsCollection.countDocuments({ addedBy: email });
-
-//   const adoptionRequests = await adoptionCollection.countDocuments({
-//     ownerEmail: email,
-//   });
-
-//   const pendingAdoptions = await adoptionCollection.countDocuments({
-//     ownerEmail: email,
-//     status: "pending",
-//   });
-
-//   const activeCampaigns = await donationCollection.countDocuments({
-//     ownerEmail: email,
-//     isPaused: false,
-//   });
-
-//   const totalDonations = await donationPaymentsCollection
-//     .aggregate([
-//       { $match: { ownerEmail: email } },
-//       { $group: { _id: null, total: { $sum: "$amount" } } },
-//     ])
-//     .toArray();
-
-//   res.send({
-//     petsAdded,
-//     adoptionRequests,
-//     pendingAdoptions,
-//     activeCampaigns,
-//     totalDonations: totalDonations[0]?.total || 0,
-//   });
-// });
