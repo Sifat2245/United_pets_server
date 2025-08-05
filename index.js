@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 
 //middlewares
 dotenv.config();
@@ -17,6 +18,14 @@ const serviceAccount = require("./Admin-key.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+});
+
+const emailTransporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.qwhtqkb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -72,6 +81,28 @@ const run = async () => {
       }
       next();
     };
+
+    //email sending api
+    app.post("/send-mail", async (req, res) => {
+      const { fromName, fromEmail, message, subject } = req.body;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: process.env.EMAIL_TO,
+        subject: subject,
+        replyTo: fromEmail,
+        html: `
+        <h2>New Contact Form Message</h2>
+        <p><strong>Name:</strong> ${fromName}</p>
+        <p><strong>Email:</strong> ${fromEmail}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Message:</strong><br/>${message}</p>
+      `,
+      };
+
+      await emailTransporter.sendMail(mailOptions);
+      res.send({success: true , message: 'email send successfully'})
+    });
 
     //users api
 
@@ -249,7 +280,7 @@ const run = async () => {
 
       const cursor = petsCollection
         .find({ adoptionStatus: "Not Adopted" })
-        .sort({addedTime: -1})
+        .sort({ addedTime: -1 })
         .skip(skip)
         .limit(limit);
 
@@ -265,7 +296,6 @@ const run = async () => {
       });
     });
 
-    
     app.get("/pets/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -362,7 +392,10 @@ const run = async () => {
     });
 
     app.get("/donations", async (req, res) => {
-      const result = await donationCollection.find().sort({createdAt: -1}).toArray();
+      const result = await donationCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
       res.send(result);
     });
 
