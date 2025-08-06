@@ -236,7 +236,7 @@ const run = async () => {
       }
     );
 
-    app.patch("/user/:id/ban", async (req, res) => {
+    app.patch("/user/:id/ban", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const result = await usersCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -411,6 +411,15 @@ const run = async () => {
       const result = await adoptionRequestCollection.deleteOne({
         _id: new ObjectId(requestedId),
       });
+      res.send(result);
+    });
+
+    app.get("/my-adoption", async (req, res) => {
+      const email = req.query.email;
+      const result = await adoptionRequestCollection
+        .find({ email })
+        .sort({ requestDate: -1 })
+        .toArray();
       res.send(result);
     });
 
