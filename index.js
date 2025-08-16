@@ -162,6 +162,18 @@ const run = async () => {
       res.send(user);
     });
 
+    app.patch("/users/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const updatedData = req.body;
+
+      const result = await usersCollection.updateOne(
+        { email },
+        { $set: updatedData }
+      );
+
+      res.send(result);
+    });
+
     //admin controls
 
     app.patch("/users/:id/role", verifyToken, verifyAdmin, async (req, res) => {
@@ -238,9 +250,10 @@ const run = async () => {
 
     app.patch("/user/:id/ban", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
+      const { banned } = req.body;
       const result = await usersCollection.updateOne(
         { _id: new ObjectId(id) },
-        { $set: { banned: true } }
+        { $set: { banned } }
       );
       res.send(result);
     });
@@ -343,6 +356,15 @@ const run = async () => {
       };
 
       const result = await petsCollection.find(query).limit(4).toArray();
+      res.send(result);
+    });
+
+    app.get("/pet/:category", async (req, res) => {
+      const { category } = req.params;
+      const query = {
+        category: category,
+      };
+      const result = await petsCollection.find(query).toArray();
       res.send(result);
     });
 
